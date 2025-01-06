@@ -1,37 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import ExamCard from '../components/Examcard';
-import EssayForm from '../components/EssayForm';
-import NavBar from '../components/NavBar';
-import Footer from '../components/footer';
 
 const TestPage = () => {
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [essay, setEssay] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedExam } = location.state || {}; // Fetch selectedExam data from location state
+  const { selectedExam } = location.state || {};
 
   useEffect(() => {
     if (!selectedExam) {
-      toast.error("No exam selected. Please select an exam first.");
       navigate('/exam-selection');
       return;
     }
 
     const fetchQuestion = async () => {
       try {
+        console.log(`Fetching question for exam: ${selectedExam}`);
         setLoading(true);
-        const response = await fetch(`http://localhost:5000/api/exam/${selectedExam}`); // Adjusted endpoint
-        if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch question`);
+        setErrorMessage('');
+        const response = await fetch(
+          `http://localhost:5000/api/questions/random-question/${selectedExam}`
+        );
+
+        if (!response.ok) {
+          console.error(`Failed to fetch question: ${response.statusText}`);
+          throw new Error('Failed to fetch question from the server.');
+        }
+
         const data = await response.json();
-        setQuestion(data.question); // Adjusted data structure
+        console.log('Question fetched successfully:', data);
+        setQuestion(data.question);
       } catch (error) {
         console.error('Error fetching question:', error);
-        toast.error("Failed to load question. Please try again.");
+        setErrorMessage('Failed to load question. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -42,28 +46,54 @@ const TestPage = () => {
 
   const handleSubmit = async () => {
     if (!essay.trim()) {
-      toast.error("Please write your essay before submitting.");
+      setErrorMessage('Essay cannot be empty.');
       return;
     }
 
-    setSubmitting(true);
+    const wordCount = essay.trim().split(/\s+/).length;
+
+    if (wordCount < 20) {
+      setErrorMessage(
+        `Essay must have at least 20 words. Current word count: ${wordCount}.`
+      );
+      return;
+    }
+
+    if (wordCount > 1000) {
+      setErrorMessage(
+        `Essay cannot exceed 1000 words. Current word count: ${wordCount}.`
+      );
+      return;
+    }
+
+    setErrorMessage('');
+    setLoading(true);
+
     try {
+      console.log('Submitting essay:', { selectedExam, essay });
+
       const response = await fetch('http://localhost:5000/api/essays/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          examId: selectedExam,
-          questionText: question,
+          exam: selectedExam,
           essayText: essay,
-          userId: '123', // Replace with actual user ID
+          userId: 1, // Replace with dynamic user ID if necessary
         }),
       });
 
-      if (!response.ok) throw new Error(`Error ${response.status}: Failed to submit essay`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Server error response:', errorData);
+        throw new Error(errorData.message || 'Failed to submit essay');
+      }
+
       const result = await response.json();
-      navigate('/results', {
+      console.log('Essay submitted successfully:', result);
+
+      navigate('/resultpage', {
         state: {
           question,
           essay,
@@ -72,48 +102,40 @@ const TestPage = () => {
       });
     } catch (error) {
       console.error('Error submitting essay:', error);
-      toast.error("Failed to submit essay. Please try again.");
+      setErrorMessage(error.message || 'Failed to submit essay.');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">Loading question...</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <NavBar />
-      <ExamCard>
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Question:</h3>
-            <p className="text-gray-700">{question}</p>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Your Essay:</h3>
-            <EssayForm
-              value={essay}
-              onChange={(e) => setEssay(e.target.value)}
-              placeholder="Write your essay here..."
-              className="min-h-[300px]"
-            />
-          </div>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Question:</h3>
+          <p className="text-gray-700 mb-6">
+            {question?.question_text || 'No question available'}
+          </p>
+          {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
+
+          <textarea
+            value={essay}
+            onChange={(e) => setEssay(e.target.value)}
+            placeholder="Write your essay here..."
+            className="w-full h-64 p-4 border rounded-lg mb-4"
+          />
           <button
             onClick={handleSubmit}
-            disabled={submitting}
-            className="px-4 py-2 bg-blue-500 text-white rounded w-full"
+            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            {submitting ? 'Submitting...' : 'Submit for Review'}
+            Submit Essay
           </button>
         </div>
-      </ExamCard>
-      <Footer />
+      </div>
     </div>
   );
 };

@@ -1,5 +1,6 @@
+// src/pages/exam-selection.jsx
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const ExamSelectionPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
