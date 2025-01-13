@@ -6,6 +6,7 @@ const TestPage = () => {
   const [loading, setLoading] = useState(true);
   const [essay, setEssay] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedExam } = location.state || {};
@@ -26,7 +27,6 @@ const TestPage = () => {
         );
 
         if (!response.ok) {
-          console.error(`Failed to fetch question: ${response.statusText}`);
           throw new Error('Failed to fetch question from the server.');
         }
 
@@ -45,6 +45,8 @@ const TestPage = () => {
   }, [selectedExam, navigate]);
 
   const handleSubmit = async () => {
+    if (submitting) return;
+
     if (!essay.trim()) {
       setErrorMessage('Essay cannot be empty.');
       return;
@@ -53,63 +55,74 @@ const TestPage = () => {
     const wordCount = essay.trim().split(/\s+/).length;
 
     if (wordCount < 20) {
-      setErrorMessage(
-        `Essay must have at least 20 words. Current word count: ${wordCount}.`
-      );
+      setErrorMessage(`Essay must have at least 20 words. Current word count: ${wordCount}.`);
       return;
     }
 
     if (wordCount > 1000) {
-      setErrorMessage(
-        `Essay cannot exceed 1000 words. Current word count: ${wordCount}.`
-      );
+      setErrorMessage(`Essay cannot exceed 1000 words. Current word count: ${wordCount}.`);
       return;
     }
 
     setErrorMessage('');
-    setLoading(true);
+    setSubmitting(true);
 
     try {
-      console.log('Submitting essay:', { selectedExam, essay });
+      const payload = {
+        exam_id: selectedExam,
+        essayText: essay,
+        userId: 1,
+      };
+
+      console.log('Submitting essay with payload:', payload);
 
       const response = await fetch('http://localhost:5000/api/essays/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          exam: selectedExam,
-          essayText: essay,
-          userId: 1, // Replace with dynamic user ID if necessary
-        }),
+        body: JSON.stringify(payload),
       });
 
+      const result = await response.json();
+      console.log('Server response:', result);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Server error response:', errorData);
-        throw new Error(errorData.message || 'Failed to submit essay');
+        throw new Error(result.message || 'Failed to submit essay');
       }
 
-      const result = await response.json();
-      console.log('Essay submitted successfully:', result);
+      // Extract `essay_id` from the response structure
+      const essayId = result?.data?.essay?.evaluation?.essay_id;
+      if (!essayId) {
+        console.error('Unexpected server response structure:', JSON.stringify(result, null, 2));
+        throw new Error('Could not find essay_id in server response');
+      }
 
+      console.log('Essay submitted successfully with essay_id:', essayId);
+
+      // Navigate to results page with necessary state
       navigate('/resultpage', {
         state: {
-          question,
-          essay,
-          reviewData: result,
+          essay_id: essayId,
+          question: question?.question_text,
+          essay: essay,
         },
+        replace: true,
       });
     } catch (error) {
       console.error('Error submitting essay:', error);
-      setErrorMessage(error.message || 'Failed to submit essay.');
+      setErrorMessage(error.message || 'Failed to submit essay. Please try again later.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   return (
@@ -120,19 +133,25 @@ const TestPage = () => {
           <p className="text-gray-700 mb-6">
             {question?.question_text || 'No question available'}
           </p>
-          {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
+          {errorMessage && (
+            <p className="text-red-500 mb-4">{errorMessage}</p>
+          )}
 
           <textarea
             value={essay}
             onChange={(e) => setEssay(e.target.value)}
             placeholder="Write your essay here..."
             className="w-full h-64 p-4 border rounded-lg mb-4"
+            disabled={submitting}
           />
           <button
             onClick={handleSubmit}
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className={`w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${
+              submitting ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={submitting}
           >
-            Submit Essay
+            {submitting ? 'Submitting...' : 'Submit Essay'}
           </button>
         </div>
       </div>

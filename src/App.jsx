@@ -1,14 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import WelcomePage from './pages/welcome'; 
-import DashboardPage from './pages/dashboard'; 
-import SignInPage from './pages/SignInpage'; 
-import ExamSelectionPage from './pages/exam-selection'; 
-import TestPage from './pages/testpage'; 
-import ResultPage from './pages/resultpage'; 
-import ScoreboardPage from './pages/scoreboard'; 
-import CoursesPage from './pages/courses'; 
-import ContactPage from './pages/contact'; 
+import WelcomePage from './pages/welcome';
+import DashboardPage from './pages/dashboard';
+import SignInPage from './pages/SignInpage';
+import ExamSelectionPage from './pages/exam-selection';
+import TestPage from './pages/testpage';
+import ResultPage from './pages/resultpage';
+import ScoreboardPage from './pages/scoreboard';
+import CoursesPage from './pages/courses';
+import ContactPage from './pages/contact';
 
 const App = () => {
   return (
@@ -17,9 +17,9 @@ const App = () => {
         <Routes>
           <Route path="/" element={<WelcomePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/signInpage" element={<SignInPage />} />
+          <Route path="/signin" element={<SignInPage />} />
           <Route path="/exam-selection" element={<ExamSelectionPage />} />
-          <Route path="/testpage" element={<TestPage />} /> {/* TestPage path */}
+          <Route path="/testpage" element={<TestPage />} />
           <Route path="/resultpage" element={<ResultPage />} />
           <Route path="/scoreboard" element={<ScoreboardPage />} />
           <Route path="/courses" element={<CoursesPage />} />

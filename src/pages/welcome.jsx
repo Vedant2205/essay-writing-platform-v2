@@ -41,7 +41,7 @@ const WelcomePage = () => {
             </p>
             <div className="mt-8 space-x-4">
               <a
-                href="/signin"
+                href="/SignIn"
                 className="px-6 py-3 bg-green-600 text-white text-lg rounded-lg shadow-md hover:bg-green-700"
               >
                 Get Started

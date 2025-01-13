@@ -1,60 +1,151 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
 
-// Load environment variables from the .env file
-dotenv.config();
-
-// Function to evaluate an essay using the Gemini API with an API Key
-const evaluateEssay = async (examId, essayText) => {
+const evaluateEssay = async (exam, essayText) => {
   try {
-    const apiUrl = process.env.GEMINI_API_URL;
     const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiUrl || !apiKey) {
-      throw new Error('Gemini API URL or API Key is missing');
+    if (!apiKey) {
+      throw new Error('Gemini API key not configured');
     }
 
-    console.log('Sending request to Gemini API with API Key');
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
 
-    const response = await axios.post(
-      apiUrl,
-      { examId, essayText },
-      {
-        headers: {
-          'x-api-key': apiKey, // Use API key for authentication
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000, // Optional: Set timeout for the request
-      }
-    );
+    console.log('Evaluating essay:', essayText);
 
-    console.log('Gemini API Response:', response.data);
+    const prompt = `
+You are an expert essay evaluator. Please evaluate the following essay:
 
-    const { score, feedback, word_count, character_count } = response.data;
+Essay Text:
+"""
+${essayText}
+"""
 
-    if (typeof score === 'undefined' || typeof feedback === 'undefined') {
-      throw new Error('Invalid response from Gemini API');
+Please provide your evaluation in the following format:
+1. Score: [Give a score out of 100]
+2. Detailed Feedback:
+   - Content Analysis
+   - Structure Analysis
+   - Grammar and Style
+3. Word Count: [Provide word count]
+4. Areas for Improvement:
+   - [List specific areas]
+
+Please be thorough in your evaluation.`;
+
+    const data = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }]
+    };
+
+    console.log('Sending request to Gemini API with payload:', JSON.stringify(data, null, 2));
+
+    const response = await axios.post(apiUrl, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('Gemini API Raw Response:', JSON.stringify(response.data, null, 2));
+
+    const evaluationText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!evaluationText) {
+      throw new Error('Invalid response format from Gemini API');
     }
 
-    return { score, feedback, word_count, character_count };
+    // Log the raw evaluation text for debugging
+    console.log('Raw evaluation text:', evaluationText);
+
+    // Process the evaluation
+    const score = extractScore(evaluationText);
+    console.log('Extracted score:', score); // Debug log
+
+    const feedback = formatFeedback(evaluationText);
+    console.log('Formatted feedback:', feedback); // Debug log
+
+    const wordCount = countWords(essayText);
+    const characterCount = essayText.length;
+
+    const result = {
+      score: score,
+      feedback: feedback,
+      word_count: wordCount,
+      character_count: characterCount,
+      raw_evaluation: evaluationText,
+    };
+
+    console.log('Processed evaluation result:', result);
+
+    return result;
+
   } catch (error) {
-    console.error('Error in Gemini API evaluation:', error.message);
-
-    if (error.response) {
-      console.error('Gemini API Error Response:', error.response.data);
-      throw new Error(error.response.data?.error?.message || 'Gemini API error');
-    }
-
-    if (error.request) {
-      console.error('No response received from Gemini API');
-      throw new Error('No response from Gemini API');
-    }
-
-    if (error.code === 'ECONNABORTED') {
-      throw new Error('Gemini API request timeout');
-    }
-
+    console.error('Error evaluating essay with Gemini API:', error);
     throw error;
+  }
+};
+
+const extractScore = (text) => {
+  try {
+    // First try to match "Score: X out of 100" pattern
+    const scoreMatch = text.match(/Score:\s*(\d+)\s*out of/);
+    
+    if (scoreMatch) {
+      const score = parseInt(scoreMatch[1], 10);
+      console.log('Found score in text:', score); // Debug log
+      return (score >= 0 && score <= 100) ? score : 0;  // Return as number
+    }
+    
+    // Fallback: try to match any number followed by /100
+    const fallbackMatch = text.match(/\b(\d{1,3})\s*\/\s*100\b/);
+    if (fallbackMatch) {
+      const score = parseInt(fallbackMatch[1], 10);
+      console.log('Found score using fallback:', score); // Debug log
+      return (score >= 0 && score <= 100) ? score : 0;  // Return as number
+    }
+
+    console.log('No valid score found in text'); // Debug log
+    return 0;  // Default to 0 if no valid score found
+  } catch (error) {
+    console.error('Error extracting score:', error);
+    return 0;  // Return 0 in case of an error
+  }
+};
+
+const formatFeedback = (text) => {
+  try {
+    // Split the text into lines
+    const lines = text.split('\n');
+    
+    // Filter out the score and word count sections
+    const relevantLines = lines.filter(line => {
+      const trimmedLine = line.trim();
+      return !trimmedLine.startsWith('1. Score:') && 
+             !trimmedLine.startsWith('3. Word Count:') &&
+             trimmedLine !== '';
+    });
+    
+    // Join the remaining lines back together
+    const formattedFeedback = relevantLines.join('\n').trim();
+    
+    console.log('Formatted feedback:', formattedFeedback); // Debug log
+    return formattedFeedback;
+  } catch (error) {
+    console.error('Error formatting feedback:', error);
+    return 'Error processing feedback';
+  }
+};
+
+const countWords = (text) => {
+  try {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    console.log('Counted words:', words.length); // Debug log
+    return words.length;
+  } catch (error) {
+    console.error('Error counting words:', error);
+    return 0;
   }
 };
 

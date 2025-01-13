@@ -1,138 +1,126 @@
-import db from '../config/database.js'; // Import the database connection
-import evaluateEssay from './GeminiEvaluation.js'; // Import evaluateEssay function
-import dotenv from 'dotenv';
+import pkg from 'pg';
+import evaluateEssay from './GeminiEvaluation.js'; // Ensure this is correctly importing the evaluation function
 
-// Load environment variables from the .env file
-dotenv.config();
+const { Pool } = pkg;
 
-// Helper function to create the SQL query for inserting essays
-const getInsertQuery = () => `
-  INSERT INTO essays (exam_id, essay_text, user_id, created_at)
-  VALUES ($1, $2, $3, NOW())
-  RETURNING id, exam_id, essay_text, user_id, created_at;
-`;
+// Create database connection pool
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
 
-// Function to save an essay to the database
-const saveEssayToDatabase = async (examId, essayText, userId) => {
-  const query = getInsertQuery();
-
+// Function to save essay and evaluation result
+const saveEssayWithEvaluation = async (exam_id, essayText, userId) => {
   try {
-    const values = [examId, essayText, userId];
-    console.log('Inserting essay into database with values:', values);
-
-    const result = await db.query(query, values);
-    console.log('Essay saved to database:', result.rows[0]);
-    return result.rows[0]; // Return the saved essay record
-  } catch (error) {
-    console.error('Error saving essay to database:', error);
-    if (error.code === '23505') {
-      // Unique constraint violation
-      throw new Error('Essay already exists');
+    // Step 1: Validate essay text
+    if (typeof essayText !== 'string' || essayText.trim() === '') {
+      throw new Error('Essay text cannot be empty or invalid.');
     }
-    throw new Error('Failed to save essay to database');
-  }
-};
 
-// Function to fetch essays by user ID
-const getEssaysByUserId = async (userId) => {
-  const query = `
-    SELECT id, exam_id, essay_text, created_at
-    FROM essays
-    WHERE user_id = $1
-    ORDER BY created_at DESC
-    LIMIT 50;
-  `;
+    // Step 2: Evaluate essay using the Gemini API
+    const evaluationResult = await evaluateEssay(exam_id, essayText);
 
-  try {
-    const result = await db.query(query, [userId]);
-    console.log('Fetched essays by user ID:', result.rows);
-    return result.rows; // Return the list of essays
-  } catch (error) {
-    console.error('Error fetching essays by user ID:', error);
-    throw new Error('Failed to fetch essays');
-  }
-};
+    // Step 3: Validate evaluation result
+    if (
+      typeof evaluationResult.score !== 'number' ||
+      isNaN(evaluationResult.score) ||
+      evaluationResult.score < 0 ||
+      evaluationResult.score > 100
+    ) {
+      throw new Error('Invalid score: must be a numeric value between 0 and 100.');
+    }
+    if (typeof evaluationResult.feedback !== 'string' || evaluationResult.feedback.trim() === '') {
+      throw new Error('Invalid feedback: must be a non-empty string.');
+    }
 
-// Function to fetch a specific essay by its ID
-const getEssayById = async (essayId) => {
-  const query = `
-    SELECT e.*, r.score, r.feedback, r.word_count, r.character_count
-    FROM essays e
-    LEFT JOIN results r ON e.id = r.essay_id
-    WHERE e.id = $1;
-  `;
+    // Step 4: Save essay to the 'essays' table
+    const insertEssayQuery = `
+      INSERT INTO essays (exam_id, essay_text, user_id, created_at)
+      VALUES ($1, $2, $3, NOW())
+      RETURNING *;
+    `;
+    const essayValues = [exam_id, essayText, userId];
+    const essayResult = await pool.query(insertEssayQuery, essayValues);
+    const savedEssay = essayResult.rows[0];
 
-  try {
-    const result = await db.query(query, [essayId]);
-    console.log('Fetched essay by ID:', result.rows[0]);
-    return result.rows[0] || null; // Return the essay or null if not found
-  } catch (error) {
-    console.error('Error fetching essay by ID:', error);
-    throw new Error('Failed to fetch essay');
-  }
-};
+    console.log('Essay saved successfully:', savedEssay);
 
-// Function to save the evaluation result to the database
-const saveEvaluationResult = async (essayId, evaluationResult) => {
-  const query = `
-    INSERT INTO results (essay_id, score, feedback, word_count, character_count, created_at)
-    VALUES ($1, $2, $3, $4, $5, NOW())
-    RETURNING id, essay_id, score, feedback, word_count, character_count, created_at;
-  `;
-
-  try {
-    const values = [
-      essayId,
+    // Step 5: Save evaluation result to the 'results' table
+    const insertResultQuery = `
+      INSERT INTO results (essay_id, user_id, score, feedback, word_count, character_count, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *;
+    `;
+    const resultValues = [
+      savedEssay.id, // Link essay ID to results table
+      userId,
       evaluationResult.score,
       evaluationResult.feedback,
       evaluationResult.word_count,
       evaluationResult.character_count,
     ];
-    console.log('Saving evaluation result:', values);
-    const result = await db.query(query, values);
-    console.log('Evaluation result saved:', result.rows[0]);
-    return result.rows[0]; // Return the saved evaluation result
+    const resultInsert = await pool.query(insertResultQuery, resultValues);
+    const savedResult = resultInsert.rows[0];
+
+    console.log('Evaluation result saved successfully:', savedResult);
+
+    // Return the saved essay and its evaluation
+    return { status: 'success', essay: savedEssay, evaluation: savedResult };
   } catch (error) {
-    console.error('Error saving evaluation result:', error);
-    throw new Error('Failed to save evaluation result');
+    console.error('Error in saveEssayWithEvaluation:', error.message);
+    throw error; // Re-throw for handling at the controller level
   }
 };
 
-// Function to save the essay and evaluate it in two steps
-const saveEssayWithEvaluation = async (examId, essayText, userId) => {
-  const client = await db.connect();
-
+// Function to evaluate essay using Gemini API
+const evaluateEssayWithGemini = async (exam_id, essayText) => {
   try {
-    await client.query('BEGIN'); // Start the transaction
-
-    // Step 1: Save the essay to the `essays` table
-    const essay = await saveEssayToDatabase(examId, essayText, userId);
-    console.log('Essay saved to database:', essay);
-
-    // Step 2: Get evaluation result from Gemini API
-    const evaluationResult = await evaluateEssay(examId, essayText);
-    console.log('Gemini API returned evaluation result:', evaluationResult);
-
-    // Step 3: Save evaluation result into the `results` table
-    const savedEvaluationResult = await saveEvaluationResult(essay.id, evaluationResult);
-    console.log('Evaluation result saved to database:', savedEvaluationResult);
-
-    await client.query('COMMIT'); // Commit the transaction
-    return { ...essay, evaluationResult: savedEvaluationResult }; // Return the combined result
+    const evaluationResult = await evaluateEssay(exam_id, essayText);
+    return evaluationResult;
   } catch (error) {
-    await client.query('ROLLBACK'); // Rollback the transaction in case of an error
-    console.error('Error saving essay with evaluation:', error);
+    console.error('Error evaluating essay with Gemini API:', error.message);
     throw error;
-  } finally {
-    client.release(); // Release the client back to the pool
   }
 };
 
-// Export the service functions
+// Function to fetch all essays submitted by a specific user
+const getEssaysByUser = async (userId) => {
+  try {
+    const query = `
+      SELECT * FROM essays
+      WHERE user_id = $1
+      ORDER BY created_at DESC;
+    `;
+    const result = await pool.query(query, [userId]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching essays by user:', error.message);
+    throw error;
+  }
+};
+
+// Function to fetch evaluation result for a specific essay
+const getEssayEvaluationById = async (essayId) => {
+  try {
+    const query = `
+      SELECT * FROM results
+      WHERE essay_id = $1;
+    `;
+    const result = await pool.query(query, [essayId]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching essay evaluation:', error.message);
+    throw error;
+  }
+};
+
+// Export the functions
 export {
-  saveEssayToDatabase,
-  getEssaysByUserId,
-  getEssayById,
   saveEssayWithEvaluation,
-  saveEvaluationResult,  // Export the new function
+  evaluateEssayWithGemini,
+  getEssaysByUser,
+  getEssayEvaluationById,
 };

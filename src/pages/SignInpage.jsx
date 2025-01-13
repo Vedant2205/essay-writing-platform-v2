@@ -1,61 +1,51 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 
-const Signin = () => {
-  const navigate = useNavigate(); // Hook to programmatically navigate
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const SignIn = () => {
+  const handleLoginSuccess = (response) => {
+    // Handle the Google login success
+    console.log('Login successful:', response);
 
-  const handleSubmit = (e) => {
-    e.preventDefault(); // Prevent page refresh
-    // You can add login logic here (e.g., API call for authentication)
-    // For now, we're just redirecting to the dashboard after form submission
-    navigate('/dashboard'); // Redirect to the dashboard page after successful sign-in
+    // Send the token to your backend for verification
+    fetch('http://localhost:5000/api/auth/google', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token: response.credential }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.token) {
+          // Assuming token is returned on successful authentication
+          localStorage.setItem('token', data.token);
+          // Redirect to dashboard or perform other actions on success
+          window.location.href = '/dashboard';
+        } else {
+          console.error('Authentication failed:', data.message);
+        }
+      })
+      .catch((error) => {
+        console.error('Error during login:', error);
+      });
+  };
+
+  const handleLoginFailure = (error) => {
+    console.error('Login failed:', error);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 shadow rounded w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">Start your Essay Preparation</h1>
-
-        {/* Sign in with Google */}
-        <button className="w-full bg-green-500 text-white py-3 rounded mb-4">
-          Sign in with Google
-        </button>
-
-        {/* Sign in with Facebook */}
-        <button className="w-full bg-gray-300 text-gray-800 py-3 rounded mb-4">
-          Sign in with Facebook
-        </button>
-
-        <p className="text-center text-gray-500 mb-4">or sign up with Email</p>
-
-        {/* Sign-in form */}
-        <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-3 border rounded mb-4"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)} // Handle email input
-          />
-          <input
-            type="password"
-            placeholder="Create a Password"
-            className="w-full p-3 border rounded mb-4"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)} // Handle password input
-          />
-          <button
-            type="submit"
-            className="w-full bg-green-500 text-white py-3 rounded"
-          >
-            Sign In
-          </button>
-        </form>
+    <div className="signin-container flex flex-col items-center justify-center min-h-screen bg-gray-50">
+      <h2 className="text-2xl font-bold mb-4">Sign In</h2>
+      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm">
+        <GoogleLogin
+          onSuccess={handleLoginSuccess}
+          onError={handleLoginFailure}
+          useOneTap
+        />
       </div>
     </div>
   );
 };
 
-export default Signin;
+export default SignIn;

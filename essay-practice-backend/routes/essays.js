@@ -1,8 +1,7 @@
 import express from 'express';
-import { saveEssayToDatabase, saveEvaluationResult } from '../services/essayService.js'; // Import the save essay and evaluation result functions
-import evaluateEssay from '../services/GeminiEvaluation.js'; // Import evaluateEssay function correctly from GeminiEvaluation
-import validator from 'validator'; // Import validator for text validation
+import { saveEssayWithEvaluation } from '../services/essayService.js'; // Updated function to save essay and evaluation
 import { OAuth2Client } from 'google-auth-library'; // Import Google OAuth2 Client
+import validator from 'validator'; // Import validator for text validation
 
 const essayRouter = express.Router();
 
@@ -47,12 +46,12 @@ essayRouter.get('/oauth2callback', async (req, res) => {
 
 // Route for submitting essays and evaluating them
 essayRouter.post('/submit', async (req, res) => {
-  const { exam, essayText, userId } = req.body;
+  const { exam_id, essayText, userId } = req.body; // Use exam_id here
 
-  console.log('Received data:', { exam, essayText, userId });
+  console.log('Received data:', { exam_id, essayText, userId });
 
   // Validate the input
-  if (!exam || !essayText || !userId) {
+  if (!exam_id || !essayText || !userId) {
     return res.status(400).json({
       success: false,
       message: 'Exam, essayText, and userId are required.',
@@ -82,28 +81,17 @@ essayRouter.post('/submit', async (req, res) => {
   }
 
   try {
-    // Step 1: Save the essay to the database
-    const essay = await saveEssayToDatabase(exam, essayText, userId);
+    // Step 1: Save the essay and evaluate it using the updated function
+    const essayWithEvaluation = await saveEssayWithEvaluation(exam_id, essayText, userId); // Pass exam_id here
 
-    console.log('Essay saved:', essay);
+    console.log('Essay and evaluation result saved:', essayWithEvaluation);
 
-    // Step 2: Evaluate the essay using the Gemini API
-    const evaluationResult = await evaluateEssay(exam, essayText);
-
-    console.log('Received evaluation result:', evaluationResult);
-
-    // Step 3: Save the evaluation result in the results table
-    const saveResult = await saveEvaluationResult(essay.id, evaluationResult);
-
-    console.log('Evaluation result saved:', saveResult);
-
-    // Step 4: Return the combined result (essay and evaluation)
+    // Step 2: Return the combined result (essay and evaluation)
     res.status(201).json({
       success: true,
       message: 'Essay submitted and evaluated successfully',
       data: {
-        essay: essay,
-        evaluation: saveResult,
+        essay: essayWithEvaluation,
       },
     });
   } catch (error) {

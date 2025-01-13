@@ -13,10 +13,10 @@ const pool = new Pool({
 // Function to handle saving the essay
 const saveEssay = async (req, res, next) => {
   try {
-    const { exam, essayText, userId } = req.body;
+    const { exam_id, essayText, userId } = req.body;
 
     // Validate input
-    if (!exam || !essayText || !userId) {
+    if (!exam_id || !essayText || !userId) {
       return res.status(400).json({
         success: false,
         message: 'Exam, essayText, and userId are required',
@@ -34,15 +34,8 @@ const saveEssay = async (req, res, next) => {
 
     console.log('Saving essay to database...');
 
-    // Save essay with PostgreSQL
-    const query = `
-      INSERT INTO essays (exam, essay_text, user_id, created_at)
-      VALUES ($1, $2, $3, NOW())
-      RETURNING *`;
-    const values = [exam, essayText, userId];
-
-    const result = await pool.query(query, values);
-    const savedEssay = result.rows[0];
+    // Save essay through essayService
+    const savedEssay = await essayService.saveEssayWithEvaluation(exam_id, essayText, userId);
 
     console.log('Essay saved successfully:', savedEssay);
 
@@ -59,10 +52,10 @@ const saveEssay = async (req, res, next) => {
 // Function to handle essay evaluation
 const evaluateEssay = async (req, res, next) => {
   try {
-    const { exam, essayText, userId } = req.body;
+    const { exam_id, essayText, userId } = req.body;
 
     // Validate input
-    if (!exam || !essayText || !userId) {
+    if (!exam_id || !essayText || !userId) {
       return res.status(400).json({
         success: false,
         message: 'Exam, essayText, and userId are required',
@@ -95,7 +88,7 @@ const evaluateEssay = async (req, res, next) => {
     }
 
     // Evaluate essay through Gemini API
-    const evaluationResult = await essayService.evaluateEssayWithGemini(exam, essayText);
+    const evaluationResult = await essayService.evaluateEssayWithGemini(exam_id, essayText);
 
     console.log('Received evaluation result:', evaluationResult);
 
@@ -134,72 +127,6 @@ const evaluateEssay = async (req, res, next) => {
   }
 };
 
-// Function to fetch all saved essays by a user
-const getEssaysByUser = async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-    const { limit = 50, offset = 0 } = req.query;
-
-    console.log('Fetching essays for user:', userId);
-
-    const query = `
-      SELECT id, exam, essay_text, created_at
-      FROM essays
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2 OFFSET $3`;
-
-    const result = await pool.query(query, [userId, limit, offset]);
-
-    if (!result.rows.length) {
-      return res.status(404).json({
-        success: false,
-        message: 'No essays found for this user',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: result.rows,
-    });
-  } catch (error) {
-    console.error('Error fetching essays by user:', error);
-    next(error);
-  }
-};
-
-// Function to fetch a specific essay by ID
-const getEssayById = async (req, res, next) => {
-  try {
-    const { essayId } = req.params;
-
-    console.log('Fetching essay with ID:', essayId);
-
-    const query = `
-      SELECT e.*, r.evaluation_result
-      FROM essays e
-      LEFT JOIN results r ON e.id = r.essay_id
-      WHERE e.id = $1`;
-
-    const result = await pool.query(query, [essayId]);
-
-    if (!result.rows.length) {
-      return res.status(404).json({
-        success: false,
-        message: 'Essay not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: result.rows[0],
-    });
-  } catch (error) {
-    console.error('Error fetching essay by ID:', error);
-    next(error);
-  }
-};
-
 // Function to validate Gemini API response structure
 const validateEvaluationResponse = (response) => {
   if (
@@ -216,6 +143,4 @@ const validateEvaluationResponse = (response) => {
 export {
   saveEssay,
   evaluateEssay,
-  getEssaysByUser,
-  getEssayById,
 };
