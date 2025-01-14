@@ -7,10 +7,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Node modules (both frontend and backend)
+node_modules/
+essay-practice-backend/node_modules/
+
+# Build directories
 dist
 dist-ssr
-*.local
+frontend/build/
+backend/build/
+
+# Environment files
+.env
+essay-practice-backend/.env
 
 # Editor directories and files
 .vscode/*
