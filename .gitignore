@@ -27,8 +27,3 @@ essay-practice-backend/.env
 .idea
 .DS_Store
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env
