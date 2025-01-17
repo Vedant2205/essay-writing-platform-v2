@@ -1,110 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Link } from 'react-router-dom';
+// src/pages/exam-selection.jsx
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const Scoreboard = () => {
-  const [userStats, setUserStats] = useState({
-    completions: 0,
-    essayScore: 0,
-    wordsWritten: 0,
-    feedbacksReceived: 0,
-  });
+const ExamSelectionPage = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
-  const [essays, setEssays] = useState([]);
-  const [error, setError] = useState(null);
+  const exams = [
+    { name: 'IELTS', id: 1 },
+    { name: 'TOEFL', id: 2 },
+    { name: 'GRE', id: 3 },
+    { name: 'GMAT', id: 4 },
+    { name: 'SAT', id: 5 },
+    { name: 'ACT', id: 6 },
+  ];
 
-  useEffect(() => {
-    // Replace `userId` with actual logic to get the user's ID
-    const userId = '123'; // Example user ID
+  const filteredExams = exams.filter((exam) =>
+    exam.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    // Fetch user stats and essays
-    const fetchUserStats = async () => {
-      try {
-        const statsResponse = await axios.get(`http://localhost:5000/api/results/${userId}`);
-        const essaysResponse = await axios.get(`http://localhost:5000/api/essays/${userId}`);
-
-        // Assuming the response contains relevant data
-        setUserStats({
-          completions: statsResponse.data.completions,
-          essayScore: statsResponse.data.essayScore,
-          wordsWritten: statsResponse.data.wordsWritten,
-          feedbacksReceived: statsResponse.data.feedbacksReceived,
-        });
-        setEssays(essaysResponse.data);  // Set the essays data
-      } catch (err) {
-        setError('Failed to fetch data');
-        console.error('Error fetching user data:', err);
-      }
-    };
-
-    fetchUserStats();
-  }, []);
+  const handleExamSelection = (exam) => {
+    navigate('/testpage', { state: { selectedExam: exam.id } });
+  };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
-      <header className="mb-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-800">Your Progress</h1>
-          <nav className="space-x-4">
-            <Link to="/dashboard" className="text-gray-700">Dashboard</Link>
-            <Link to="/contact" className="text-gray-700">Contact</Link>
-            <Link to="/signin" className="text-gray-700">Sign Out</Link>
-          </nav>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <header className="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h1 className="text-xl font-bold">EssayPrep</h1>
       </header>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <div className="p-4 bg-white shadow rounded text-center">
-          <h2 className="text-xl font-bold text-gray-800">{userStats.completions}</h2>
-          <p className="text-sm text-gray-500">Completions</p>
+      <main className="px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">Select an Exam</h2>
+          <input
+            type="text"
+            placeholder="Search for Exams"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md"
+          />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+            {filteredExams.map((exam) => (
+              <button
+                key={exam.id}
+                onClick={() => handleExamSelection(exam)}
+                className="p-4 bg-white border rounded shadow-sm text-center hover:bg-gray-100 transition"
+              >
+                <h4 className="font-bold text-gray-700">{exam.name}</h4>
+                <p className="text-sm text-gray-500">Select for exam preparation</p>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="p-4 bg-white shadow rounded text-center">
-          <h2 className="text-xl font-bold text-gray-800">{userStats.essayScore}</h2>
-          <p className="text-sm text-gray-500">Essay Score</p>
-        </div>
-        <div className="p-4 bg-white shadow rounded text-center">
-          <h2 className="text-xl font-bold text-gray-800">{userStats.wordsWritten}</h2>
-          <p className="text-sm text-gray-500">Words Written</p>
-        </div>
-        <div className="p-4 bg-white shadow rounded text-center">
-          <h2 className="text-xl font-bold text-gray-800">{userStats.feedbacksReceived}</h2>
-          <p className="text-sm text-gray-500">Feedbacks Received</p>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="text-lg font-medium text-gray-800 mb-4">Your Essays</h2>
-        <table className="min-w-full bg-white shadow rounded">
-          <thead>
-            <tr>
-              <th className="text-left px-4 py-2 border-b">Date</th>
-              <th className="text-left px-4 py-2 border-b">Title</th>
-              <th className="text-left px-4 py-2 border-b">Score</th>
-              <th className="text-left px-4 py-2 border-b">Feedback</th>
-            </tr>
-          </thead>
-          <tbody>
-            {essays.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="px-4 py-2 border-b">No essays found.</td>
-              </tr>
-            ) : (
-              essays.map((essay) => (
-                <tr key={essay.id}>
-                  <td className="px-4 py-2 border-b">{new Date(essay.created_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-2 border-b">{essay.title}</td>
-                  <td className="px-4 py-2 border-b">{essay.score}</td>
-                  <td className="px-4 py-2 border-b">
-                    <Link to={`/feedback/${essay.id}`} className="text-blue-600">View Feedback</Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      </main>
     </div>
   );
 };
 
-export default Scoreboard;
+export default ExamSelectionPage;

@@ -19,7 +19,7 @@ const DashboardPage = () => {
         <div className="max-w-6xl mx-auto">
           <section className="text-center">
             <h2 className="text-2xl font-bold">Write your best essay with EssayPrep</h2>
-            <p className="text-gray-600 mt-2">Our detailed feedback will help you improve your writing in 24 hours.</p>
+            <p className="text-blue-600 mt-2">Our detailed feedback will help you improve your writing in 24 hours.</p>
           </section>
 
           <section className="mt-8">

@@ -4,13 +4,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create a connection pool for PostgreSQL
+// Determine if the app is running in production or development
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Create a connection pool for PostgreSQL with SSL enabled for production
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT || 5432, // Default port for PostgreSQL
+  ssl: isProduction ? { rejectUnauthorized: false } : false, // Enable SSL in production only
 });
 
 // Function to fetch a random question based on Exam ID
