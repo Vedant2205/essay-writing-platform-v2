@@ -1,4 +1,5 @@
 // src/contexts/EssayContext.js
+/* eslint-disable no-unused-vars */
 
 import React, { createContext, useState, useContext } from 'react';
 
