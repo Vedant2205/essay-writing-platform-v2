@@ -2,6 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import session from 'express-session';
+import { createClient } from 'redis';
+import connectRedis from 'connect-redis';
 import pool from './config/database.js';
 import questionsRouter from './routes/questions.js';
 import essayRouter from './routes/essays.js';
@@ -10,23 +12,34 @@ import resultRouter from './routes/result.js';
 import errorHandler from './middleware/errorHandler.js';
 
 dotenv.config();
-const app = express();
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+const app = express();
+const RedisStore = connectRedis(session);
+const redisClient = createClient({
+  url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`,
+});
+
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+redisClient.connect();
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use(
   session({
+    store: new RedisStore({ client: redisClient }),
     secret: process.env.SESSION_SECRET || 'default_secret',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24,
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
     },
   })
 );
@@ -56,11 +69,12 @@ app.listen(PORT, () => {
 
 process.on('SIGINT', async () => {
   try {
+    await redisClient.quit();
     await pool.end();
-    console.log('Database pool has been closed');
+    console.log('Resources have been cleaned up');
     process.exit(0);
   } catch (error) {
-    console.error('Error closing database pool:', error.message);
+    console.error('Error during cleanup:', error.message);
     process.exit(1);
   }
 });
