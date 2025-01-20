@@ -27,3 +27,4 @@ essay-practice-backend/.env
 .idea
 .DS_Store
 *.suo
+.vercel
