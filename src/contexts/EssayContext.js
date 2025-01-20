@@ -2,6 +2,7 @@
 /* eslint-disable no-unused-vars */
 
 import React, { createContext, useState, useContext } from 'react';
+import PropTypes from 'prop-types';
 
 // Create a Context for managing essay state
 const EssayContext = createContext();
@@ -31,4 +32,9 @@ export const EssayContextProvider = ({ children }) => {
       {children}
     </EssayContext.Provider>
   );
+};
+
+// Prop validation for the EssayContextProvider component
+EssayContextProvider.propTypes = {
+  children: PropTypes.node.isRequired,  // Ensure that 'children' prop is validated as a node
 };
