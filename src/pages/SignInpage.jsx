@@ -1,14 +1,15 @@
 /* eslint-disable no-unused-vars */
-
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
+import { useNavigate } from 'react-router-dom';
 
-const SignIn = () => {
+const SignInPage = () => {
+  const navigate = useNavigate(); // React Router hook for navigation
+
   const handleLoginSuccess = (response) => {
-    // Handle the Google login success
     console.log('Login successful:', response);
 
-    // Send the token to your backend for verification
+    // Send the token to the backend for verification
     fetch('http://localhost:5000/api/auth/google', {
       method: 'POST',
       headers: {
@@ -16,24 +17,33 @@ const SignIn = () => {
       },
       body: JSON.stringify({ token: response.credential }),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         if (data.token) {
-          // Assuming token is returned on successful authentication
+          // Store the token in localStorage
           localStorage.setItem('token', data.token);
-          // Redirect to dashboard or perform other actions on success
-          window.location.href = '/dashboard';
+
+          // Redirect to the dashboard using React Router
+          navigate('/dashboard');
         } else {
           console.error('Authentication failed:', data.message);
+          alert('Authentication failed. Please try again.');
         }
       })
       .catch((error) => {
         console.error('Error during login:', error);
+        alert('An error occurred during login. Please try again later.');
       });
   };
 
   const handleLoginFailure = (error) => {
     console.error('Login failed:', error);
+    alert('Google login failed. Please try again.');
   };
 
   return (
@@ -50,4 +60,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default SignInPage;

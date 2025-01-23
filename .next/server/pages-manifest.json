@@ -1,5 +1,14 @@
 {
-  "/_app": "pages/_app.js",
+  "/SignInpage": "pages/SignInpage.js",
   "/_error": "pages/_error.js",
+  "/courses": "pages/courses.js",
+  "/dashboard": "pages/dashboard.js",
+  "/contact": "pages/contact.js",
+  "/exam-selection": "pages/exam-selection.js",
+  "/testpage": "pages/testpage.js",
+  "/_app": "pages/_app.js",
+  "/welcome": "pages/welcome.js",
+  "/scoreboard": "pages/scoreboard.js",
+  "/resultpage": "pages/resultpage.js",
   "/_document": "pages/_document.js"
 }
