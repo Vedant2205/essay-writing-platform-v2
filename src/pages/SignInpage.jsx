@@ -2,6 +2,7 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../utils/config'; // Import the dynamic API URL
 
 const SignInPage = () => {
   const navigate = useNavigate(); // React Router hook for navigation
@@ -10,7 +11,7 @@ const SignInPage = () => {
     console.log('Login successful:', response);
 
     // Send the token to the backend for verification
-    fetch('http://localhost:5000/api/auth/google', {
+    fetch(`${API_URL}/api/auth/google`, { // Use the dynamic API_URL here
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

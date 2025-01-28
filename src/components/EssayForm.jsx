@@ -1,9 +1,9 @@
 // src/pages/EssayForm.jsx
 /* eslint-disable no-unused-vars */
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios'; // For making HTTP requests
+import { API_URL } from '../utils/config'; // Import API_URL
 
 const EssayForm = () => {
   const [essayText, setEssayText] = useState('');
@@ -17,8 +17,8 @@ const EssayForm = () => {
     setIsSubmitting(true);
 
     try {
-      // Send POST request to backend to evaluate essay
-      const response = await axios.post('http://localhost:5000/api/essays/evaluate', {
+      // Send POST request to backend to evaluate essay using the dynamic API_URL
+      const response = await axios.post(`${API_URL}/api/essays/evaluate`, {
         exam,
         essayText,
       });
