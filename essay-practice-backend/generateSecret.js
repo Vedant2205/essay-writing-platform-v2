@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 
-// Generate a random 64-byte secret key and convert it to a hexadecimal string
-const secret = crypto.randomBytes(64).toString('hex');
+// Generate a random 64-byte secret key for JWT
+const jwtSecret = crypto.randomBytes(64).toString('hex');
+console.log('Generated JWT_SECRET:', jwtSecret);
 
-console.log('Generated JWT Secret Key:', secret);
-
+// Generate a random 32-byte secret key for session management
+const sessionSecret = crypto.randomBytes(32).toString('hex');
+console.log('Generated SESSION_SECRET:', sessionSecret);

@@ -53,30 +53,13 @@ const errorHandler = (err, req, res, next) => {
       break;
 
     default:
-      // Default case for unexpected errors
-      errorMessage = err.message || 'Unknown error occurred.';
-      statusCode = 500;
-      console.error('Unhandled Error Type:', err);
+      break;
   }
 
-  // Handle API-specific errors (e.g., Gemini API errors)
-  if (err.isAxiosError) {
-    errorMessage = err.response?.data?.error?.message || 'External API error.';
-    statusCode = err.response?.status || 500;
-    console.error('Axios Request URL:', err.config?.url || 'Unknown URL');
-    console.error('Axios Request Params:', err.config?.params || 'No parameters');
-  }
-
-  // Send structured response
   res.status(statusCode).json({
     success: false,
     message: errorMessage,
-    status: statusCode,
-    ...(process.env.NODE_ENV === 'development' && {
-      stack: err.stack,
-      details: err.details || 'No additional details',
-      code: err.code || 'No code provided',
-    }),
+    details: err.details || undefined,
   });
 };
 
