@@ -31,10 +31,18 @@ export const getRandomQuestion = async (examId) => {
     const result = await pool.query(query, [examId]);
     return result.rows[0] || null; // Return the question or null if no question found
   } catch (error) {
-    console.error('Error fetching question:', error.message);
+    console.error('Error fetching question with query:', query);
+    console.error('Error message:', error.message);
     throw new Error('Unable to fetch question'); // Re-throw a user-friendly error message
   }
 };
+
+// Graceful shutdown of the database connection pool
+process.on('SIGINT', async () => {
+  await pool.end();
+  console.log('Database connection pool closed.');
+  process.exit(0);
+});
 
 // Exporting the pool for reusability
 export default pool;

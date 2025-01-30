@@ -1,7 +1,24 @@
-/* eslint-disable no-unused-vars */
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://essay-backend-ghgt.onrender.com/api';
+
+const fetchWithRetry = async (url, options, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      
+      if (response.status === 404 || response.status === 400) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      }
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
+  }
+};
 
 const TestPage = () => {
   const [question, setQuestion] = useState(null);
@@ -24,20 +41,28 @@ const TestPage = () => {
         console.log(`Fetching question for exam: ${selectedExam}`);
         setLoading(true);
         setErrorMessage('');
-        const response = await fetch(
-          `http://localhost:5000/api/questions/random-question/${selectedExam}`
+        
+        const response = await fetchWithRetry(
+          `${API_BASE_URL}/questions/random-question/${selectedExam}`,
+          {
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
         );
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch question from the server.');
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to fetch question');
         }
 
-        const data = await response.json();
         console.log('Question fetched successfully:', data);
         setQuestion(data.question);
       } catch (error) {
         console.error('Error fetching question:', error);
-        setErrorMessage('Failed to load question. Please try again later.');
+        setErrorMessage(error.message || 'Failed to load question. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -78,22 +103,25 @@ const TestPage = () => {
 
       console.log('Submitting essay with payload:', payload);
 
-      const response = await fetch('http://localhost:5000/api/essays/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetchWithRetry(
+        `${API_BASE_URL}/essays/submit`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const result = await response.json();
       console.log('Server response:', result);
 
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.message || 'Failed to submit essay');
       }
 
-      // Extract `essay_id` from the response structure
       const essayId = result?.data?.essay?.evaluation?.essay_id;
       if (!essayId) {
         console.error('Unexpected server response structure:', JSON.stringify(result, null, 2));
@@ -102,7 +130,6 @@ const TestPage = () => {
 
       console.log('Essay submitted successfully with essay_id:', essayId);
 
-      // Navigate to results page with necessary state
       navigate('/resultpage', {
         state: {
           essay_id: essayId,
@@ -122,7 +149,7 @@ const TestPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        Loading...
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -136,24 +163,32 @@ const TestPage = () => {
             {question?.question_text || 'No question available'}
           </p>
           {errorMessage && (
-            <p className="text-red-500 mb-4">{errorMessage}</p>
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+              <p className="text-red-700">{errorMessage}</p>
+            </div>
           )}
 
           <textarea
             value={essay}
             onChange={(e) => setEssay(e.target.value)}
             placeholder="Write your essay here..."
-            className="w-full h-64 p-4 border rounded-lg mb-4"
+            className="w-full h-64 p-4 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={submitting}
           />
           <button
             onClick={handleSubmit}
-            className={`w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${
-              submitting ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            className={`w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors
+              ${submitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
             disabled={submitting}
           >
-            {submitting ? 'Submitting...' : 'Submit Essay'}
+            {submitting ? (
+              <span className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Submitting...
+              </span>
+            ) : (
+              'Submit Essay'
+            )}
           </button>
         </div>
       </div>

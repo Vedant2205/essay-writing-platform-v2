@@ -2,6 +2,9 @@ const errorHandler = (err, req, res, next) => {
   // Log full error details for debugging
   console.error('Error Message:', err.message || 'No error message provided');
   console.error('Error Stack:', err.stack || 'No stack trace available');
+  console.error('Request Method:', req.method);
+  console.error('Request URL:', req.url);
+  console.error('Request Body:', req.body);
 
   let errorMessage = 'Something went wrong!';
   let statusCode = err.status || 500;
@@ -28,11 +31,25 @@ const errorHandler = (err, req, res, next) => {
     case 'EssaySaveError':
       errorMessage = 'Error saving the essay.';
       statusCode = 500;
+      if (err.details) {
+        return res.status(statusCode).json({
+          success: false,
+          message: errorMessage,
+          details: err.details,
+        });
+      }
       break;
 
     case 'EssayEvaluateError':
       errorMessage = 'Error evaluating the essay with Gemini API.';
       statusCode = 500;
+      if (err.details) {
+        return res.status(statusCode).json({
+          success: false,
+          message: errorMessage,
+          details: err.details,
+        });
+      }
       break;
 
     case 'SyntaxError':
@@ -53,6 +70,8 @@ const errorHandler = (err, req, res, next) => {
       break;
 
     default:
+      console.error('Unhandled Error:', err);
+      console.error('Request Path:', req.originalUrl);
       break;
   }
 
