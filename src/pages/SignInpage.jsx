@@ -13,8 +13,10 @@ const SignInPage = () => {
     // Send the token to the backend for verification
     fetch(`${API_URL}/api/auth/google`, { // Use the dynamic API_URL here
       method: 'POST',
+      credentials: 'include', // Add credentials include
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({ token: response.credential }),
     })
@@ -54,7 +56,10 @@ const SignInPage = () => {
         <GoogleLogin
           onSuccess={handleLoginSuccess}
           onError={handleLoginFailure}
-          useOneTap
+          useOneTap={false}
+          flow="implicit"
+          auto_select={false}
+          redirectUri="https://essay-writing-platform-v2.vercel.app/oauth2callback"
         />
       </div>
     </div>
