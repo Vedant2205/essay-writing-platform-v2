@@ -33,7 +33,7 @@ const allowedOrigins = [
 // CORS configuration
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -75,28 +75,6 @@ app.use(
   })
 );
 
-// Health check endpoint with detailed status
-app.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT NOW()');
-    res.status(200).json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      env: process.env.NODE_ENV,
-      database: 'connected',
-      version: process.env.npm_package_version || '1.0.0'
-    });
-  } catch (error) {
-    res.status(503).json({
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      env: process.env.NODE_ENV,
-      database: 'disconnected',
-      error: error.message
-    });
-  }
-});
-
 // API routes
 app.use('/api/auth', authRouter);
 app.use('/api/questions', questionsRouter);
@@ -129,16 +107,18 @@ const initializeServer = async () => {
     await testDatabaseConnection();
     
     const PORT = process.env.PORT || 5000;
-    const server = app.listen(PORT, () => {
-      console.log(`Server Details:
+    const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    
+    console.log(`Server Details:
 - Environment: ${process.env.NODE_ENV}
 - Port: ${PORT}
 - Database: Connected
-- Health Check: ${process.env.NODE_ENV === 'production' ? 
-  'https://essay-backend-ghgt.onrender.com' : 'http://localhost:'}${PORT}/health
 - CORS Origins: ${allowedOrigins.join(', ')}
 - Session Secure: ${process.env.NODE_ENV === 'production'}
-      `);
+    `);
+
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on ${baseUrl}`);
     });
 
     // Handle server errors
