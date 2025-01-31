@@ -39,7 +39,7 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
+  credentials: true, // Allow cookies and credentials
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
@@ -65,13 +65,13 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production', // Secure cookies in production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      domain: process.env.NODE_ENV === 'production' ? '.render.com' : undefined
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // SameSite for production (cross-site)
+      domain: process.env.NODE_ENV === 'production' ? '.render.com' : undefined, // Domain for production cookies
     },
-    proxy: true,
+    proxy: true, // For deployments behind reverse proxy (like Render)
   })
 );
 
