@@ -12,7 +12,7 @@ const TestPage = () => {
   const navigate = useNavigate();
   const { selectedExam } = location.state || {};  // Ensure selectedExam matches exam_id
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://essay-writing-platform-v2.onrender.com/api';
 
   // Update word count as essay is typed
   useEffect(() => {
