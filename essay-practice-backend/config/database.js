@@ -1,48 +1,82 @@
-import pkg from 'pg'; // Import the entire pg module
-const { Pool } = pkg; // Destructure the Pool from the imported module
+import pkg from 'pg';
+const { Pool } = pkg;
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Determine if the app is running in production or development
+// Determine if we're in a production environment (for SSL)
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Create a connection pool for PostgreSQL with SSL enabled for production
+// Create connection pool using DATABASE_URL for Render's PostgreSQL database
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT || 5432, // Default port for PostgreSQL
-  ssl: isProduction ? { rejectUnauthorized: false } : false, // Enable SSL in production only
+  connectionString: process.env.DATABASE_URL, // Use Render's DATABASE_URL
+  ssl: isProduction ? { rejectUnauthorized: false } : false, // Enable SSL in production
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // How long a client can stay idle before being closed
+  connectionTimeoutMillis: 2000, // How long to wait when connecting a new client
+});
+
+// Test database connection
+pool.on('connect', () => {
+  console.log('Database connected successfully');
+});
+
+// Handle errors
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
 });
 
 // Function to fetch a random question based on Exam ID
 export const getRandomQuestion = async (examId) => {
   const query = `
-    SELECT question_text
+    SELECT 
+      question_id,
+      question_text,
+      exam_id,
+      created_at
     FROM questions
-    WHERE exam_id = $1
+    WHERE exam_id = $1 
+      AND question_text IS NOT NULL 
+      AND question_text != ''
     ORDER BY RANDOM()
     LIMIT 1;
   `;
 
   try {
     const result = await pool.query(query, [examId]);
-    return result.rows[0] || null; // Return the question or null if no question found
+    if (!result.rows[0]) {
+      throw new Error(`No questions found for exam ID: ${exam_Id}`);
+    }
+    return result.rows[0]; // Return the question if found
   } catch (error) {
-    console.error('Error fetching question with query:', query);
-    console.error('Error message:', error.message);
-    throw new Error('Unable to fetch question'); // Re-throw a user-friendly error message
+    console.error('Error executing query:', error);
+    console.error('Query parameters:', [exam_Id]);
+    throw new Error(`Failed to fetch question: ${error.message}`);
   }
 };
 
-// Graceful shutdown of the database connection pool
+// Function to check database health
+export const checkDatabaseHealth = async () => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    return { status: 'healthy', timestamp: result.rows[0].now };
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    throw new Error('Database health check failed');
+  }
+};
+
+// Graceful shutdown handler for the database pool
 process.on('SIGINT', async () => {
-  await pool.end();
-  console.log('Database connection pool closed.');
-  process.exit(0);
+  try {
+    await pool.end();
+    console.log('Database pool has ended');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during pool shutdown:', error);
+    process.exit(1);
+  }
 });
 
-// Exporting the pool for reusability
 export default pool;

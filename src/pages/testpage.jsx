@@ -1,195 +1,224 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://essay-backend-ghgt.onrender.com/api';
-
-const fetchWithRetry = async (url, options, maxRetries = 3) => {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-      
-      if (response.status === 404 || response.status === 400) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Request failed with status ${response.status}`);
-      }
-    } catch (error) {
-      if (i === maxRetries - 1) throw error;
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-    }
-  }
-};
-
 const TestPage = () => {
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [essay, setEssay] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedExam } = location.state || {};
+  const { selectedExam } = location.state || {};  // Ensure selectedExam matches exam_id
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  // Update word count as essay is typed
+  useEffect(() => {
+    const words = essay.trim().split(/\s+/);
+    setWordCount(essay.trim() ? words.length : 0);
+  }, [essay]);
+
+  // Redirect to exam selection if no exam is selected
   useEffect(() => {
     if (!selectedExam) {
-      navigate('/exam-selection');
+      console.warn('No exam selected, redirecting to exam selection');
+      navigate('/exam-selection', { replace: true });
       return;
     }
+  }, [selectedExam, navigate]);
+
+  // Fetch the question when the exam is selected
+  useEffect(() => {
+    if (!selectedExam) return;
 
     const fetchQuestion = async () => {
       try {
-        console.log(`Fetching question for exam: ${selectedExam}`);
         setLoading(true);
         setErrorMessage('');
-        
-        const response = await fetchWithRetry(
-          `${API_BASE_URL}/questions/random-question/${selectedExam}`,
-          {
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json'
+
+        const endpoint = `${API_BASE_URL}/questions/${selectedExam}`;  // Assuming exam_id is passed as selectedExam
+        console.log('Fetching question for exam:', selectedExam);
+        console.log('Endpoint:', endpoint);
+
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          let errorMessage;
+
+          try {
+            if (contentType && contentType.includes('application/json')) {
+              const errorData = await response.json();
+              errorMessage = errorData.message;
+            } else {
+              const textError = await response.text();
+              errorMessage = `Server error: ${response.status}. ${textError}`;
             }
+          } catch (e) {
+            errorMessage = `Failed to parse error response: ${e.message}`;
           }
-        );
+
+          throw new Error(errorMessage);
+        }
 
         const data = await response.json();
-        
+
         if (!data.success) {
           throw new Error(data.message || 'Failed to fetch question');
         }
 
-        console.log('Question fetched successfully:', data);
+        if (!data.question) {
+          throw new Error('No question found in the response');
+        }
+
         setQuestion(data.question);
+        setErrorMessage('');
       } catch (error) {
-        console.error('Error fetching question:', error);
-        setErrorMessage(error.message || 'Failed to load question. Please try again later.');
+        console.error('Detailed error fetching question:', error);
+        setErrorMessage(
+          `Failed to load question: ${error.message}. Please check your connection or try again.`
+        );
       } finally {
         setLoading(false);
       }
     };
 
     fetchQuestion();
-  }, [selectedExam, navigate]);
+  }, [selectedExam]);
 
+  // Handle essay submission
   const handleSubmit = async () => {
     if (submitting) return;
 
-    if (!essay.trim()) {
-      setErrorMessage('Essay cannot be empty.');
-      return;
-    }
-
-    const wordCount = essay.trim().split(/\s+/).length;
-
-    if (wordCount < 20) {
-      setErrorMessage(`Essay must have at least 20 words. Current word count: ${wordCount}.`);
-      return;
-    }
-
-    if (wordCount > 1000) {
-      setErrorMessage(`Essay cannot exceed 1000 words. Current word count: ${wordCount}.`);
-      return;
-    }
-
-    setErrorMessage('');
-    setSubmitting(true);
-
     try {
-      const payload = {
-        exam_id: selectedExam,
-        essayText: essay,
-        userId: 1,
-      };
+      if (!essay.trim()) {
+        throw new Error('Please write your essay before submitting.');
+      }
 
-      console.log('Submitting essay with payload:', payload);
+      if (wordCount < 20) {
+        throw new Error(`Essay must have at least 20 words. Current count: ${wordCount}`);
+      }
 
-      const response = await fetchWithRetry(
-        `${API_BASE_URL}/essays/submit`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      if (wordCount > 1000) {
+        throw new Error(`Essay cannot exceed 1000 words. Current count: ${wordCount}`);
+      }
+
+      setErrorMessage('');
+      setSubmitting(true);
+
+      const submitEndpoint = `${API_BASE_URL}/essays/submit`;
+      const response = await fetch(submitEndpoint, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          exam_id: selectedExam,  // Make sure to use exam_id
+          essayText: essay,
+          questionId: question?.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Submission failed with status ${response.status}`);
+      }
 
       const result = await response.json();
-      console.log('Server response:', result);
+      const essayId = result?.essayId || result?.id;
 
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to submit essay');
-      }
-
-      const essayId = result?.data?.essay?.evaluation?.essay_id;
       if (!essayId) {
-        console.error('Unexpected server response structure:', JSON.stringify(result, null, 2));
-        throw new Error('Could not find essay_id in server response');
+        throw new Error('No essay ID received from server');
       }
 
-      console.log('Essay submitted successfully with essay_id:', essayId);
-
-      navigate('/resultpage', {
+      navigate('/results', {
         state: {
-          essay_id: essayId,
-          question: question?.question_text,
-          essay: essay,
+          essayId,
+          questionText: question?.question_text,
+          essayText: essay,
         },
         replace: true,
       });
     } catch (error) {
-      console.error('Error submitting essay:', error);
-      setErrorMessage(error.message || 'Failed to submit essay. Please try again later.');
+      console.error('Submission error:', error);
+      setErrorMessage(error.message);
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Show a loading state if no exam selected or fetching
+  if (!selectedExam) {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your question...</p>
+        </div>
       </div>
     );
   }
 
+  // Render the main test page
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Question:</h3>
-          <p className="text-gray-700 mb-6">
-            {question?.question_text || 'No question available'}
-          </p>
-          {errorMessage && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-              <p className="text-red-700">{errorMessage}</p>
-            </div>
-          )}
-
-          <textarea
-            value={essay}
-            onChange={(e) => setEssay(e.target.value)}
-            placeholder="Write your essay here..."
-            className="w-full h-64 p-4 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={submitting}
-          />
-          <button
-            onClick={handleSubmit}
-            className={`w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors
-              ${submitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <span className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Submitting...
-              </span>
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Essay Question
+            </h3>
+            {question ? (
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {question?.question_text}
+              </p>
             ) : (
-              'Submit Essay'
+              <p className="text-red-600">
+                Question could not be loaded. Please refresh the page or contact support.
+              </p>
             )}
-          </button>
+          </div>
+          <div className="p-6">
+            <textarea
+              value={essay}
+              onChange={(e) => setEssay(e.target.value)}
+              placeholder="Write your essay here..."
+              className="w-full h-64 p-4 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div className="mt-4 flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                Word count: {wordCount} {wordCount > 1000 && "(exceeded limit)"}
+              </span>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className={`px-4 py-2 rounded-lg text-white ${
+                  submitting
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {submitting ? 'Submitting...' : 'Submit Essay'}
+              </button>
+            </div>
+            {errorMessage && (
+              <p className="mt-4 text-red-600">{errorMessage}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

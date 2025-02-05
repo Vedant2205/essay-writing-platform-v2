@@ -59,7 +59,7 @@ const SignInPage = () => {
           useOneTap={false}
           flow="implicit"
           auto_select={false}
-          redirectUri="https://essay-writing-platform-v2.vercel.app/oauth2callback"
+          REDIRECT_URI="https://essay-writing-platform-v2.vercel.app/oauth2callback"
         />
       </div>
     </div>

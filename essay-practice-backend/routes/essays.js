@@ -1,7 +1,8 @@
+// /routes/essays.js
 import express from 'express';
-import { saveEssayWithEvaluation } from '../services/essayService.js'; // Updated function to save essay and evaluation
-import { OAuth2Client } from 'google-auth-library'; // Import Google OAuth2 Client
-import validator from 'validator'; // Import validator for text validation
+import { saveEssayWithEvaluation } from '../services/essayService.js'; // Function to save essay and evaluation
+import { OAuth2Client } from 'google-auth-library'; // Google OAuth2 Client
+import validator from 'validator'; // Validator for text validation
 
 const essayRouter = express.Router();
 
