@@ -22,6 +22,7 @@ requiredEnvVars.forEach(envVar => {
 });
 
 const allowedOrigins = [
+  'https://essay-writing-platform-v2.onrender.com',
   'https://essay-writing-platform-v2.vercel.app',
   'https://essay-writing-platform-v2-git-main-vedant-dhauskars-projects.vercel.app',
   'https://essay-writing-platform-v2-vedant-dhauskars-projects.vercel.app',
