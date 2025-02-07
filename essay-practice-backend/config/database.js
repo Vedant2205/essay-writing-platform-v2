@@ -18,17 +18,17 @@ const pool = new Pool({
 
 // Test database connection
 pool.on('connect', () => {
-  console.log('Database connected successfully');
+  console.log('✅ Database connected successfully');
 });
 
 // Handle errors
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  console.error('❌ Unexpected error on idle client', err);
   process.exit(-1);
 });
 
-// Function to fetch a random question based on Exam ID
-export const getRandomQuestion = async (examId) => {
+// Function to fetch a random question based on exam_id
+export const getRandomQuestion = async (exam_id) => {
   const query = `
     SELECT 
       question_id,
@@ -44,14 +44,14 @@ export const getRandomQuestion = async (examId) => {
   `;
 
   try {
-    const result = await pool.query(query, [examId]);
+    const result = await pool.query(query, [exam_id]);
     if (!result.rows[0]) {
-      throw new Error(`No questions found for exam ID: ${exam_Id}`);
+      throw new Error(`❌ No questions found for exam ID: ${exam_id}`);
     }
-    return result.rows[0]; // Return the question if found
+    return result.rows[0]; // Return the fetched question
   } catch (error) {
-    console.error('Error executing query:', error);
-    console.error('Query parameters:', [exam_Id]);
+    console.error('❌ Error executing query:', error);
+    console.error('Query parameters:', [exam_id]);
     throw new Error(`Failed to fetch question: ${error.message}`);
   }
 };
@@ -62,7 +62,7 @@ export const checkDatabaseHealth = async () => {
     const result = await pool.query('SELECT NOW()');
     return { status: 'healthy', timestamp: result.rows[0].now };
   } catch (error) {
-    console.error('Database health check failed:', error);
+    console.error('❌ Database health check failed:', error);
     throw new Error('Database health check failed');
   }
 };
@@ -71,10 +71,10 @@ export const checkDatabaseHealth = async () => {
 process.on('SIGINT', async () => {
   try {
     await pool.end();
-    console.log('Database pool has ended');
+    console.log('✅ Database pool has ended');
     process.exit(0);
   } catch (error) {
-    console.error('Error during pool shutdown:', error);
+    console.error('❌ Error during pool shutdown:', error);
     process.exit(1);
   }
 });
