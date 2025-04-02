@@ -23,6 +23,7 @@ requiredEnvVars.forEach(envVar => {
 
 // Allow only frontend domain(s) here
 const allowedOrigins = [
+  'http://localhost:5000',
   'http://localhost:3000', // Your frontend URL
   // Add any additional frontend domains if deployed (like Vercel, etc.)
 ];
