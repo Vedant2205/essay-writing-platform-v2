@@ -8,7 +8,7 @@ import essayRouter from './routes/essays.js';
 import authRouter from './routes/auth.js';
 import resultRouter from './routes/result.js';
 import errorHandler from './middleware/errorHandler.js';
-import helmet from 'helmet'; // Security middleware (optional)
+import helmet from 'helmet'; // Optional but recommended for security
 
 dotenv.config();
 const app = express();
@@ -21,73 +21,60 @@ requiredEnvVars.forEach(envVar => {
   }
 });
 
+// Allow only frontend domain(s) here
 const allowedOrigins = [
-  'https://essay-writing-platform-v2.onrender.com',
-  'https://essay-writing-platform-v2.vercel.app',
-  'https://essay-writing-platform-v2-git-main-vedant-dhauskars-projects.vercel.app',
-  'https://essay-writing-platform-v2-vedant-dhauskars-projects.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:5173'
+  'http://localhost:3000', // Your frontend URL
+  // Add any additional frontend domains if deployed (like Vercel, etc.)
 ];
 
 app.use(cors({
   origin: allowedOrigins,
-  credentials: true
+  credentials: true, // Allows cookies to be sent along with the request
 }));
 
 // Add helmet for extra security
 app.use(helmet());
 
-// Add COOP and COEP headers for cross-origin security
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
-
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Session configuration
 const sessionConfig = {
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === 'production', // Secure cookies only in production
+    sameSite: 'lax', // Lax mode is fine for local development
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
     path: '/',
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
   },
-  proxy: true
 };
 
 if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
+  app.set('trust proxy', 1); // Required for secure cookies in production
 }
 
 app.use(session(sessionConfig));
 
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'ok',
     message: 'API is running',
     serverDetails: {
       environment: process.env.NODE_ENV,
       port: process.env.PORT,
       database: 'Connected',
-      corsOrigins: allowedOrigins
+      corsOrigins: allowedOrigins,
     }
   });
 });
 
-// Route mappings (Ensure these match frontend calls)
 app.use('/api/questions', questionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/essays', essayRouter);
 app.use('/api/results', resultRouter);
 
-// Health check route
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT NOW()');
@@ -97,7 +84,6 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Error handling middleware
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
@@ -107,11 +93,9 @@ const server = app.listen(PORT, () => {
 - Port: ${PORT}
 - Database: Connected
 - CORS Origins: ${allowedOrigins.join(', ')}
-- Session Secure: ${sessionConfig.cookie.secure}
-`);
+- Session Secure: ${sessionConfig.cookie.secure}`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down gracefully...');
   server.close(() => {

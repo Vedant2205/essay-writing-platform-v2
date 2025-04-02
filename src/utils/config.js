@@ -1,10 +1,3 @@
-// src/utils/config.js
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-const getBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://essay-writing-platform-v2.onrender.com'; // Production URL
-  }
-  return 'http://localhost:5000'; // Development URL
-};
-
-export const API_URL = getBaseUrl(); // Ensure this line exports the API_URL correctly
+export { API_URL };

@@ -16,9 +16,9 @@ const SignInPage = () => {
       credentials: 'include', // Add credentials include
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
       },
-      body: JSON.stringify({ token: response.credential }),
+      body: JSON.stringify({ token: response.credential }), // Send the token to backend
     })
       .then((res) => {
         if (!res.ok) {
@@ -59,7 +59,6 @@ const SignInPage = () => {
           useOneTap={false}
           flow="implicit"
           auto_select={false}
-          REDIRECT_URI="https://essay-writing-platform-v2.vercel.app/oauth2callback"
         />
       </div>
     </div>

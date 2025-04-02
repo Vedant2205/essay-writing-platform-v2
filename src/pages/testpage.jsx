@@ -10,17 +10,18 @@ const TestPage = () => {
   const [wordCount, setWordCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedExam } = location.state || {};  // Ensure selectedExam matches exam_id
+  const { selectedExam } = location.state || {};
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://essay-writing-platform-v2.onrender.com/api';
+  // Use environment variable for API URL with fallback
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://essay-writing-platform-v2.onrender.com';
 
-  // Update word count as essay is typed
+  // Update word count when essay changes
   useEffect(() => {
     const words = essay.trim().split(/\s+/);
     setWordCount(essay.trim() ? words.length : 0);
   }, [essay]);
 
-  // Redirect to exam selection if no exam is selected
+  // Redirect if no exam is selected
   useEffect(() => {
     if (!selectedExam) {
       console.warn('No exam selected, redirecting to exam selection');
@@ -29,7 +30,7 @@ const TestPage = () => {
     }
   }, [selectedExam, navigate]);
 
-  // Fetch the question when the exam is selected
+  // Fetch question when exam is selected
   useEffect(() => {
     if (!selectedExam) return;
 
@@ -38,7 +39,8 @@ const TestPage = () => {
         setLoading(true);
         setErrorMessage('');
 
-        const endpoint = `${API_BASE_URL}/questions/${selectedExam}`;  // Assuming exam_id is passed as selectedExam
+        // Correctly formatted endpoint URL
+        const endpoint = `${API_BASE_URL}/questions?exam_id=${selectedExam}`;
         console.log('Fetching question for exam:', selectedExam);
         console.log('Endpoint:', endpoint);
 
@@ -71,6 +73,7 @@ const TestPage = () => {
         }
 
         const data = await response.json();
+        console.log('Received data:', data); // Add logging
 
         if (!data.success) {
           throw new Error(data.message || 'Failed to fetch question');
@@ -93,71 +96,46 @@ const TestPage = () => {
     };
 
     fetchQuestion();
-  }, [selectedExam]);
+  }, [selectedExam, API_BASE_URL]);
 
-  // Handle essay submission
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (!essay.trim()) {
+      setErrorMessage('Essay cannot be empty.');
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage('');
 
     try {
-      if (!essay.trim()) {
-        throw new Error('Please write your essay before submitting.');
-      }
-
-      if (wordCount < 20) {
-        throw new Error(`Essay must have at least 20 words. Current count: ${wordCount}`);
-      }
-
-      if (wordCount > 1000) {
-        throw new Error(`Essay cannot exceed 1000 words. Current count: ${wordCount}`);
-      }
-
-      setErrorMessage('');
-      setSubmitting(true);
-
-      const submitEndpoint = `${API_BASE_URL}/essays/submit`;
-      const response = await fetch(submitEndpoint, {
+      const response = await fetch(`${API_BASE_URL}/essays`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          exam_id: selectedExam,  // Make sure to use exam_id
-          essayText: essay,
-          questionId: question?.id,
+          exam_id: selectedExam,
+          essay_text: essay,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || `Submission failed with status ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to submit essay. Please try again.');
       }
 
       const result = await response.json();
-      const essayId = result?.essayId || result?.id;
-
-      if (!essayId) {
-        throw new Error('No essay ID received from server');
-      }
-
-      navigate('/results', {
-        state: {
-          essayId,
-          questionText: question?.question_text,
-          essayText: essay,
-        },
-        replace: true,
-      });
+      console.log('Submission successful:', result);
+      navigate('/results', { state: { result } });
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error('Error submitting essay:', error);
       setErrorMessage(error.message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Show a loading state if no exam selected or fetching
   if (!selectedExam) {
     return null;
   }
@@ -173,7 +151,6 @@ const TestPage = () => {
     );
   }
 
-  // Render the main test page
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -205,9 +182,9 @@ const TestPage = () => {
               </span>
               <button
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || wordCount > 1000}
                 className={`px-4 py-2 rounded-lg text-white ${
-                  submitting
+                  submitting || wordCount > 1000
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}

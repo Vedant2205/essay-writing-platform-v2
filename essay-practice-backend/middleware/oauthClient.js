@@ -14,11 +14,11 @@ const validateToken = async (token) => {
   try {
     const ticket = await oauth2Client.verifyIdToken({
       idToken: token,
-      audience: CLIENT_ID,
+      audience: CLIENT_ID, // Ensure the token is from the correct client
     });
-    
+
     const userData = ticket.getPayload();
-    
+
     if (!userData) {
       throw new Error('No user data found in token');
     }
