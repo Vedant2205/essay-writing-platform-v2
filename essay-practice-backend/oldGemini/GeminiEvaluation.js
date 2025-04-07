@@ -1,6 +1,9 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const evaluateEssay = async (exam, essayText) => {
+
+const evaluateEssay = async (exam_id, essay_text) => {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -8,16 +11,16 @@ const evaluateEssay = async (exam, essayText) => {
       throw new Error('Gemini API key not configured');
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
 
-    console.log('Evaluating essay:', essayText);
+    console.log('Evaluating essay:', essay_text);
 
     const prompt = `
 You are an expert essay evaluator. Please evaluate the following essay:
 
 Essay Text:
 """
-${essayText}
+${essay_text}
 """
 
 Please provide your evaluation in the following format:
@@ -50,7 +53,10 @@ Please be thorough in your evaluation.`;
 
     console.log('Gemini API Raw Response:', JSON.stringify(response.data, null, 2));
 
-    const evaluationText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const evaluationText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+if (!evaluationText.trim()) {
+  throw new Error('Invalid or empty response from Gemini API');
+}
 
     if (!evaluationText) {
       throw new Error('Invalid response format from Gemini API');
@@ -66,8 +72,8 @@ Please be thorough in your evaluation.`;
     const feedback = formatFeedback(evaluationText);
     console.log('Formatted feedback:', feedback); // Debug log
 
-    const wordCount = countWords(essayText);
-    const characterCount = essayText.length;
+    const wordCount = countWords(essay_text);
+    const characterCount = essay_text.length;
 
     const result = {
       score: score,
@@ -149,4 +155,20 @@ const countWords = (text) => {
   }
 };
 
-export default evaluateEssay;
+const evaluateEssayWithRetry = async (exam_id, essay_text, retries = 3) => {
+  try {
+    return await evaluateEssay(exam_id, essay_text);
+  } catch (error) {
+    if (retries > 0) {
+      console.log(`Retrying essay evaluation... Attempts left: ${retries}`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 sec before retry
+      return await evaluateEssayWithRetry(exam_id, essay_text, retries - 1);
+    } else {
+      console.error('All retries failed:', error.message);
+      throw error;
+    }
+  }
+};
+
+
+export default evaluateEssayWithRetry;

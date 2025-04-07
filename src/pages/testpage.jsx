@@ -12,8 +12,11 @@ const TestPage = () => {
   const navigate = useNavigate();
   const { selectedExam } = location.state || {};
 
-  // Use environment variable for API URL with fallback
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://essay-writing-platform-v2.onrender.com';
+  // Set a default user ID (Replace this with actual user authentication logic)
+  const user_id = "12345"; // TODO: Fetch this from user authentication
+
+  // Use environment variable for API URL
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   // Update word count when essay changes
   useEffect(() => {
@@ -39,8 +42,7 @@ const TestPage = () => {
         setLoading(true);
         setErrorMessage('');
 
-        // Correctly formatted endpoint URL
-        const endpoint = `${API_BASE_URL}/questions?exam_id=${selectedExam}`;
+        const endpoint = `${API_BASE_URL}/api/questions?exam_id=${selectedExam}`;
         console.log('Fetching question for exam:', selectedExam);
         console.log('Endpoint:', endpoint);
 
@@ -54,42 +56,21 @@ const TestPage = () => {
         });
 
         if (!response.ok) {
-          const contentType = response.headers.get('content-type');
-          let errorMessage;
-
-          try {
-            if (contentType && contentType.includes('application/json')) {
-              const errorData = await response.json();
-              errorMessage = errorData.message;
-            } else {
-              const textError = await response.text();
-              errorMessage = `Server error: ${response.status}. ${textError}`;
-            }
-          } catch (e) {
-            errorMessage = `Failed to parse error response: ${e.message}`;
-          }
-
-          throw new Error(errorMessage);
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server error: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('Received data:', data); // Add logging
+        console.log('Received data:', data);
 
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to fetch question');
-        }
-
-        if (!data.question) {
+        if (!data.success || !data.question) {
           throw new Error('No question found in the response');
         }
 
         setQuestion(data.question);
-        setErrorMessage('');
       } catch (error) {
-        console.error('Detailed error fetching question:', error);
-        setErrorMessage(
-          `Failed to load question: ${error.message}. Please check your connection or try again.`
-        );
+        console.error('Error fetching question:', error);
+        setErrorMessage(`Failed to load question: ${error.message}`);
       } finally {
         setLoading(false);
       }
@@ -108,7 +89,13 @@ const TestPage = () => {
     setErrorMessage('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/essays`, {
+      console.log('Submitting essay with:', {
+        exam_id: selectedExam,
+        essay_text: essay,
+        user_id: user_id,
+      });
+
+      const response = await fetch(`${API_BASE_URL}/api/essays/submit`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -117,17 +104,20 @@ const TestPage = () => {
         body: JSON.stringify({
           exam_id: selectedExam,
           essay_text: essay,
+          user_id: user_id, // ✅ Added user_id
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to submit essay. Please try again.');
       }
 
       const result = await response.json();
       console.log('Submission successful:', result);
-      navigate('/results', { state: { result } });
+
+      // Redirect to the results page with the result's essay_id
+      navigate(`/results/${result.essay_id}`);
     } catch (error) {
       console.error('Error submitting essay:', error);
       setErrorMessage(error.message);
@@ -203,3 +193,4 @@ const TestPage = () => {
 };
 
 export default TestPage;
+
