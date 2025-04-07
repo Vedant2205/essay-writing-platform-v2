@@ -1,4 +1,3 @@
-// /routes/essays.js
 import express from 'express';
 import { saveEssayWithEvaluation } from '../services/essayService.js'; // Function to save essay and evaluation
 import { OAuth2Client } from 'google-auth-library'; // Google OAuth2 Client
@@ -47,20 +46,20 @@ essayRouter.get('/oauth2callback', async (req, res) => {
 
 // Route for submitting essays and evaluating them
 essayRouter.post('/submit', async (req, res) => {
-  const { exam_id, essayText, userId } = req.body; // Use exam_id here
+  const { exam_id, essay_text, user_id } = req.body;
 
-  console.log('Received data:', { exam_id, essayText, userId });
+  console.log('Received data:', { exam_id, essay_text, user_id });
 
   // Validate the input
-  if (!exam_id || !essayText || !userId) {
+  if (!exam_id || !essay_text || !user_id) {
     return res.status(400).json({
       success: false,
-      message: 'Exam, essayText, and userId are required.',
+      message: 'Exam ID, essay_text, and user_id are required.',
     });
   }
 
-  // Additional check to ensure essayText is not just spaces
-  if (validator.isEmpty(essayText.trim())) {
+  // Additional check to ensure essay_text is not just spaces
+  if (validator.isEmpty(essay_text.trim())) {
     return res.status(400).json({
       success: false,
       message: 'Essay text cannot be empty.',
@@ -68,7 +67,7 @@ essayRouter.post('/submit', async (req, res) => {
   }
 
   // Validate the number of words in the essay
-  const wordCount = countWords(essayText);
+  const wordCount = countWords(essay_text);
   const minWords = 20; // Minimum word count
   const maxWords = 1000; // Maximum word count
 
@@ -82,12 +81,12 @@ essayRouter.post('/submit', async (req, res) => {
   }
 
   try {
-    // Step 1: Save the essay and evaluate it using the updated function
-    const essayWithEvaluation = await saveEssayWithEvaluation(exam_id, essayText, userId); // Pass exam_id here
+    // Save the essay and evaluate it using the updated function
+    const essayWithEvaluation = await saveEssayWithEvaluation(exam_id, essay_text, user_id);
 
     console.log('Essay and evaluation result saved:', essayWithEvaluation);
 
-    // Step 2: Return the combined result (essay and evaluation)
+    // Return the combined result (essay and evaluation)
     res.status(201).json({
       success: true,
       message: 'Essay submitted and evaluated successfully',

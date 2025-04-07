@@ -6,13 +6,17 @@ import pool from './config/database.js';
 import questionsRouter from './routes/questions.js';
 import essayRouter from './routes/essays.js';
 import authRouter from './routes/auth.js';
-import resultRouter from './routes/result.js';
+import resultRouter from './routes/results.js';
 import errorHandler from './middleware/errorHandler.js';
-import helmet from 'helmet'; // Optional but recommended for security
+import helmet from 'helmet'; // Security best practice
+import 'dotenv/config';
+console.log("Loaded API Key:", process.env.GEMINI_API_KEY);
+
 
 dotenv.config();
 const app = express();
 
+// Ensure required environment variables are set
 const requiredEnvVars = ['SESSION_SECRET', 'DATABASE_URL'];
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
@@ -21,21 +25,31 @@ requiredEnvVars.forEach(envVar => {
   }
 });
 
-// Allow only frontend domain(s) here
+// Allowed frontend domains
 const allowedOrigins = [
-  'http://localhost:5000',
-  'http://localhost:3000', // Your frontend URL
-  // Add any additional frontend domains if deployed (like Vercel, etc.)
+  'http://localhost:3000', // Frontend (React)
+  'http://localhost:5000', // API (Backend)
+  // Add your deployed frontend domain here if needed
 ];
 
 app.use(cors({
   origin: allowedOrigins,
-  credentials: true, // Allows cookies to be sent along with the request
+  credentials: true,
 }));
 
-// Add helmet for extra security
+// Set security headers
 app.use(helmet());
 
+// 🔥 **Fix: Add COOP & COEP Headers** 🔥
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Optional for resources
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin'); // Improves security
+  next();
+});
+
+// Parse incoming JSON data
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -46,18 +60,19 @@ const sessionConfig = {
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production', // Secure cookies only in production
-    sameSite: 'lax', // Lax mode is fine for local development
+    sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000, // 1 day
     path: '/',
   },
 };
 
 if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1); // Required for secure cookies in production
+  app.set('trust proxy', 1);
 }
 
 app.use(session(sessionConfig));
 
+// Default API response
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
@@ -71,11 +86,13 @@ app.get('/', (req, res) => {
   });
 });
 
+// API routes
 app.use('/api/questions', questionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/essays', essayRouter);
 app.use('/api/results', resultRouter);
 
+// Health check
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT NOW()');
@@ -85,11 +102,13 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Error handling middleware
 app.use(errorHandler);
 
+// Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
-  console.log(`Server Details:
+  console.log(`Server running:
 - Environment: ${process.env.NODE_ENV}
 - Port: ${PORT}
 - Database: Connected
@@ -97,6 +116,7 @@ const server = app.listen(PORT, () => {
 - Session Secure: ${sessionConfig.cookie.secure}`);
 });
 
+// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down gracefully...');
   server.close(() => {

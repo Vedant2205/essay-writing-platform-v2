@@ -6,7 +6,7 @@ import DashboardPage from './pages/dashboard';
 import SignInPage from './pages/SignInpage';
 import ExamSelectionPage from './pages/exam-selection';
 import TestPage from './pages/testpage';
-import ResultPage from './pages/resultpage';
+import ResultPage from './pages/ResultPage';
 import ScoreboardPage from './pages/scoreboard';
 import CoursesPage from './pages/courses';
 import ContactPage from './pages/contact';
@@ -23,7 +23,8 @@ const App = () => {
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/exam-selection" element={<ExamSelectionPage />} />
             <Route path="/testpage" element={<TestPage />} />
-            <Route path="/resultpage" element={<ResultPage />} />
+            {/* Update this route to use essay_id as a URL parameter */}
+            <Route path="/results/:essay_id" element={<ResultPage />} />
             <Route path="/scoreboard" element={<ScoreboardPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/contact" element={<ContactPage />} />
