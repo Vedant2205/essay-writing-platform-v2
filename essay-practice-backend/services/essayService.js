@@ -12,10 +12,25 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// Function to extract numeric score from Gemini feedback
-const extractScoreFromFeedback = (feedback) => {
-  const scoreMatch = feedback.match(/Score:\s*(\d+)\s*\/\s*100/i);
-  return scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
+// Function to extract score from feedback (adjusted for different exam formats)
+const extractScoreFromFeedback = (exam_id, feedback) => {
+  let score = 0;
+
+  if (exam_id === 'IELTS') {
+    // For IELTS, look for band score in the feedback
+    const scoreMatch = feedback.match(/Band Score:\s*(\d+(\.\d+)?)\s*/i);
+    if (scoreMatch) {
+      score = parseFloat(scoreMatch[1]);
+    }
+  } else {
+    // For other exams, extract numerical score (out of 100)
+    const scoreMatch = feedback.match(/Score:\s*(\d+)\s*\/\s*100/i);
+    if (scoreMatch) {
+      score = parseInt(scoreMatch[1], 10);
+    }
+  }
+
+  return score;
 };
 
 // Function to save essay and evaluation result
@@ -29,9 +44,12 @@ const saveEssayWithEvaluation = async (exam_id, essay_text, user_id) => {
     const evaluationResult = await evaluateEssay(exam_id, essay_text);
 
     const feedback = evaluationResult.feedback || '';
-    const score = extractScoreFromFeedback(feedback);
+    const score = extractScoreFromFeedback(exam_id, feedback);
 
-    if (isNaN(score) || score < 0 || score > 100) {
+    // Validate score range depending on exam type
+    if (exam_id === 'IELTS' && (isNaN(score) || score < 0 || score > 9)) {
+      throw new Error('Invalid IELTS band score extracted from Gemini feedback.');
+    } else if (exam_id !== 'IELTS' && (isNaN(score) || score < 0 || score > 100)) {
       throw new Error('Invalid score extracted from Gemini feedback.');
     }
 
@@ -45,14 +63,14 @@ const saveEssayWithEvaluation = async (exam_id, essay_text, user_id) => {
     const essayResult = await pool.query(insertEssayQuery, essayValues);
     const savedEssay = essayResult.rows[0];
 
-    // Save evaluation to 'results' table
+    // Save evaluation to 'results' table (updated to use essay_id)
     const insertResultQuery = `
       INSERT INTO results (essay_id, user_id, essay_text, score, feedback, word_count, character_count, created_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       RETURNING *;
     `;
     const resultValues = [
-      savedEssay.id,
+      savedEssay.id,  // essay_id
       user_id,
       essay_text,
       score,

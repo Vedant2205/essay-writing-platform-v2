@@ -4,7 +4,6 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Renamed to match the import in essayService.js
 const evaluateEssay = async (exam_id, essay_text) => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
@@ -55,11 +54,24 @@ ${essay_text}
     const response = await result.response;
     const text = await response.text();
 
-    // Extract score from feedback (look for "**Overall Score: X / 100**")
+    console.log('Gemini API Response:', text); // Log the entire response text for debugging
+
+    // Extract score from feedback with improved regex pattern
+    // This matches both "**Score: X/100**" and "**Overall Score: X / 100**" formats
     let extractedScore = 0;
-    const scoreMatch = text.match(/\*\*Overall Score:\s*(\d+)\s*\/\s*100\*\*/);
+    const scoreMatch = text.match(/\*\*(?:Overall\s+)?Score:\s*(\d+)\s*\/\s*100\*\*/i);
+    
+    // If the above doesn't match, try alternate formats
     if (scoreMatch && scoreMatch[1]) {
       extractedScore = parseInt(scoreMatch[1]);
+    } else {
+      // Try other potential formats
+      const altScoreMatch = text.match(/Score:\s*(\d+)\s*\/\s*100/i);
+      if (altScoreMatch && altScoreMatch[1]) {
+        extractedScore = parseInt(altScoreMatch[1]);
+      } else {
+        console.error('Score not found in the response text:', text);
+      }
     }
 
     return {
