@@ -1,8 +1,15 @@
-import express from 'express';
-import { saveEvaluationResult } from '../controllers/resultsController.js';
+import { Router } from 'express';
+import { saveEvaluationResult, getResultByEssayId, getResultById } from '../controllers/resultsController.js';
 
-const router = express.Router();
+const router = Router();
 
-router.post('/save', saveEvaluationResult);
+// Save result
+router.post('/results', saveEvaluationResult);
+
+// Fetch result by essay ID
+router.get('/results/essay/:essay_id', getResultByEssayId);
+
+// Fetch result by result ID
+router.get('/results/:id', getResultById);
 
 export default router;

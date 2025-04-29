@@ -93,6 +93,7 @@ const TestPage = () => {
         exam_id: selectedExam,
         essay_text: essay,
         user_id: user_id,
+        question_text: question?.question_text, // Pass question_text here
       });
 
       const response = await fetch(`${API_BASE_URL}/api/essays/submit`, {
@@ -105,6 +106,7 @@ const TestPage = () => {
           exam_id: selectedExam,
           essay_text: essay,
           user_id: user_id, // ✅ Added user_id
+          question_text: question?.question_text, // Include the question text here
         }),
       });
 
@@ -193,4 +195,3 @@ const TestPage = () => {
 };
 
 export default TestPage;
-

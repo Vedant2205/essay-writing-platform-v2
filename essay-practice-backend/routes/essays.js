@@ -86,13 +86,11 @@ essayRouter.post('/submit', async (req, res) => {
 
     console.log('Essay and evaluation result saved:', essayWithEvaluation);
 
-    // Return the combined result (essay and evaluation)
+    // Return evaluationId at the top level of the response
     res.status(201).json({
       success: true,
       message: 'Essay submitted and evaluated successfully',
-      data: {
-        essay: essayWithEvaluation,
-      },
+      evaluationId: essayWithEvaluation.evaluation.id,
     });
   } catch (error) {
     console.error('Error processing essay submission and evaluation:', error);

@@ -1,30 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom'; // or useRouter if using Next.js
+import { useParams } from 'react-router-dom';  // React Router DOM for navigation
 
 const ResultPage = () => {
-  const { essay_id } = useParams(); // URL param: /results/:essay_id
+  const { essay_id } = useParams();  // URL param: /results/:essay_id
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [geminiResult, setGeminiResult] = useState(null);  // Store the Gemini API result
 
   useEffect(() => {
-    const fetchResult = async () => {
+    const fetchEssayResult = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/results/${essay_id}`);
+        // First, fetch essay details from Gemini API
+        const geminiResponse = await axios.get(`http://localhost:5000/api/gemini/${essay_id}`);  // Assuming Gemini API is available at this endpoint
+        setGeminiResult(geminiResponse.data);
+
+        // Fetch result by essay_id (this could be from your backend API that processes the essay)
+        const response = await axios.get(`http://localhost:5000/api/results/essay/${essay_id}`);
         setResult(response.data);
       } catch (error) {
-        console.error("Error fetching result:", error);
+        console.error('Error fetching result or Gemini data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchResult();
+    fetchEssayResult();
   }, [essay_id]);
 
   if (loading) return <p>Loading...</p>;
 
-  if (!result) return <p>No result found.</p>;
+  if (!result || !geminiResult) return <p>No result found.</p>;
 
   return (
     <div className="result-container">
@@ -41,13 +47,13 @@ const ResultPage = () => {
       </div>
 
       <div className="section">
-        <strong>📊 Score:</strong>
-        <p>{result.score}</p>
+        <strong>📊 Score (Gemini API):</strong>
+        <p>{geminiResult.score}</p>
       </div>
 
       <div className="section">
-        <strong>💬 Feedback:</strong>
-        <p>{result.feedback}</p>
+        <strong>💬 Feedback (Gemini API):</strong>
+        <p>{geminiResult.feedback}</p>
       </div>
     </div>
   );

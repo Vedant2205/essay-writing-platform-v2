@@ -75,11 +75,14 @@ const saveEssay = async (req, res, next) => {
       evaluation.character_count,
       questionText,
     ]);
+    
+    const evaluationId = result.rows[0].id;
 
     res.status(201).json({
       success: true,
       data: {
         essay_id: essayId,
+        evaluation_id: evaluationId, // Add the evaluation_id explicitly
         evaluation: result.rows[0],
       },
       message: 'Essay and evaluation saved successfully.',
@@ -111,7 +114,7 @@ const evaluateEssay = async (req, res, next) => {
     }
 
     const checkQuery = `
-      SELECT score, feedback, word_count, character_count
+      SELECT id, score, feedback, word_count, character_count
       FROM results
       WHERE user_id = $1 AND essay_text = $2;
     `;
@@ -120,7 +123,10 @@ const evaluateEssay = async (req, res, next) => {
     if (checkResult.rows.length > 0) {
       return res.status(200).json({
         success: true,
-        data: checkResult.rows[0],
+        data: {
+          evaluation_id: checkResult.rows[0].id, // Add evaluation_id here too
+          ...checkResult.rows[0]
+        },
         message: 'Returning cached evaluation.',
       });
     }
